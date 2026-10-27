@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  CONFIRMED
+  ACCEPTED
+  PREPARING
+  READY_FOR_PICKUP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum UserRole {
+  CUSTOMER
+  PARTNER
+  ADMIN
+  DELIVERY
+}
+
+model User {
+  id        String    @id @default(cuid())
+  name      String
+  phone     String?   @unique
+  email     String?   @unique
+  role      UserRole  @default(CUSTOMER)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  addresses Address[]
+  orders    Order[]   @relation("CustomerOrders")
+  sessions  Session[]
+  restaurants Restaurant[]
+  deliveries Order[] @relation("DeliveryOrders")
+  auditLogs  AuditLog[]
+}
+
+model OtpChallenge {
+  id         String   @id @default(cuid())
+  phone      String
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+  @@index([phone, expiresAt])
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, expiresAt])
+}
+
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  label     String
+  line      String
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders    Order[]
+
+  @@index([userId])
+}
+
+model Restaurant {
+  id              String     @id
+  name            String
+  description     String
+  rating          Decimal    @db.Decimal(2, 1)
+  reviewCount     Int        @default(0)
+  deliveryMinutes Int
+  deliveryFee     Int
+  priceForTwo     Int
+  vegetarian      Boolean    @default(false)
+  open            Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  ownerId          String?
+  menuItems       MenuItem[]
+  orders          Order[]
+  owner            User?      @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+}
+
+model MenuItem {
+  id           String      @id
+  restaurantId String
+  category     String
+  name         String
+  description  String
+  price        Int
+  vegetarian   Boolean     @default(false)
+  available    Boolean     @default(true)
+  inventoryCount Int?
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orderItems   OrderItem[]
+
+  @@index([restaurantId, available])
+}
+
+model Order {
+  id             String            @id @default(cuid())
+  userId         String?
+  restaurantId   String
+  addressId      String?
+  status         OrderStatus       @default(CONFIRMED)
+  subtotal       Int
+  deliveryFee    Int
+  serviceFee     Int
+  total          Int
+  currency       String            @default("INR")
+  notes          String?
+  deliveryPartnerId String?
+  assignedAt     DateTime?
+  pickedUpAt     DateTime?
+  deliveredAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  user           User?             @relation("CustomerOrders", fields: [userId], references: [id], onDelete: SetNull)
+  deliveryPartner User?            @relation("DeliveryOrders", fields: [deliveryPartnerId], references: [id], onDelete: SetNull)
+  restaurant     Restaurant        @relation(fields: [restaurantId], references: [id])
+  address        Address?          @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  items          OrderItem[]
+  idempotencyKey OrderIdempotency?
+
+  @@index([restaurantId, status])
+  @@index([createdAt])
+  @@index([deliveryPartnerId, status])
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  menuItemId String
+  name       String
+  unitPrice  Int
+  quantity   Int
+  currency   String   @default("INR")
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([orderId])
+}
+
+model OrderIdempotency {
+  key       String   @id
+  orderId   String   @unique
+  createdAt DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId, createdAt])
+}

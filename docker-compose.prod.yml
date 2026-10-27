@@ -1,0 +1,167 @@
+# ============================================
+# TABLETRAIL PRODUCTION DOCKER COMPOSE
+# ============================================
+# 
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Environment:
+#   - Copy .env.prod.local to same directory
+#   - Do not enable unverified payment or SMS adapters for real users.
+#   - Keep .gitignore'd—never commit real secrets
+#
+# ============================================
+
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tabletrail-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tabletrail}
+      POSTGRES_USER: ${POSTGRES_USER:-tabletrail}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-in-production}
+    ports:
+      - "5432:5432"
+    volumes:
+      - tabletrail-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tabletrail} -d ${POSTGRES_DB:-tabletrail}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7-alpine
+    container_name: tabletrail-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - tabletrail-redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tabletrail-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Application
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://tabletrail.co.in}
+
+      # Database
+      DATABASE_URL: ${DATABASE_URL:-postgresql://tabletrail:[REDACTED]@postgres:5432/tabletrail}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+
+      # Authentication
+      AUTH_PROVIDER: ${AUTH_PROVIDER:-postgres}
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+
+      # Payments are not production-ready in this repository.
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-test}
+      PAYMENT_SECRET: ${PAYMENT_SECRET:-}
+
+      # SMS delivery is not verified in this repository.
+      SMS_PROVIDER: ${SMS_PROVIDER:-log}
+      SMS_API_KEY: ${SMS_API_KEY:-}
+      SMS_SENDER_ID: ${SMS_SENDER_ID:-TABLETRAIL}
+
+      # Maps
+      MAPS_PROVIDER: ${MAPS_PROVIDER:-mapbox}
+      MAPS_API_KEY: ${MAPS_API_KEY:-}
+
+      # Email (optional)
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-log}
+      EMAIL_API_KEY: ${EMAIL_API_KEY:-}
+
+      # Portals
+      PARTNER_PORTAL: ${PARTNER_PORTAL:-postgres}
+      ORDER_STORE: ${ORDER_STORE:-postgres}
+
+      # Admin
+      ADMIN_PHONE: ${ADMIN_PHONE:-}
+
+      # Monitoring
+      METRICS_TOKEN: ${METRICS_TOKEN:-change-me-in-production}
+
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:3000/api/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+
+  # Optional: Nginx reverse proxy for HTTPS (uncomment when ready)
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: tabletrail-nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - tabletrail-ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - app
+  #   logging:
+  #     driver: json-file
+  #     options:
+  #       max-size: "10m"
+  #       max-file: "3"
+
+volumes:
+  tabletrail-postgres-data:
+    driver: local
+  tabletrail-redis-data:
+    driver: local
+  # tabletrail-ssl:
+  #   driver: local
+
+networks:
+  default:
+    name: tabletrail-network
+    driver: bridge

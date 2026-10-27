@@ -1,0 +1,72 @@
+:root {
+  --ink: #1d1b20;
+  --muted: #716d76;
+  --line: #ece9ee;
+  --paper: #fffdfb;
+  --brand: #df5c47;
+  --brand-dark: #b94334;
+  --mint: #e7f4ed;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--ink); background: var(--paper); font-family: Arial, Helvetica, sans-serif; }
+a { color: inherit; text-decoration: none; }
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+.shell { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+.topbar { border-bottom: 1px solid var(--line); background: rgba(255,253,251,.95); position: sticky; top: 0; z-index: 4; }
+.nav { height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.logo { font-family: Georgia, serif; font-size: 28px; font-weight: 700; letter-spacing: -1px; }
+.logo span { color: var(--brand); }
+.navlinks { display: flex; gap: 22px; color: var(--muted); font-size: 14px; }
+.navlinks a:hover { color: var(--ink); }
+.button { border: 0; border-radius: 999px; padding: 12px 18px; font-weight: 700; background: var(--ink); color: white; }
+.button.primary { background: var(--brand); }
+.button.ghost { background: white; color: var(--ink); border: 1px solid var(--line); }
+.hero { padding: 72px 0 48px; display: grid; grid-template-columns: 1.15fr .85fr; gap: 56px; align-items: center; }
+.eyebrow { color: var(--brand-dark); text-transform: uppercase; letter-spacing: 2px; font-size: 11px; font-weight: 700; }
+h1 { font-family: Georgia, serif; font-size: clamp(42px, 6vw, 72px); line-height: .98; letter-spacing: -3px; margin: 14px 0 20px; max-width: 650px; }
+h2 { font-family: Georgia, serif; font-size: 34px; letter-spacing: -1px; margin: 0; }
+.lede { color: var(--muted); line-height: 1.7; max-width: 560px; }
+.searchbar { display: flex; gap: 10px; padding: 8px; margin-top: 28px; border: 1px solid var(--line); background: white; border-radius: 16px; max-width: 620px; box-shadow: 0 12px 34px rgba(48, 36, 36, .07); }
+.searchbar input { flex: 1; min-width: 0; border: 0; outline: 0; padding: 10px; }
+.hero-card { background: #f7e7dd; border-radius: 34px; min-height: 320px; padding: 26px; display: flex; align-items: end; position: relative; overflow: hidden; }
+.hero-card:before, .hero-card:after { content: ""; position: absolute; border-radius: 50%; background: #f0b2a1; width: 220px; height: 220px; top: -50px; right: -40px; }
+.hero-card:after { width: 160px; height: 160px; bottom: -50px; left: -40px; background: #e5c986; }
+.hero-card-content { position: relative; z-index: 1; background: rgba(255,255,255,.82); border-radius: 18px; padding: 18px; max-width: 260px; }
+.section { padding: 32px 0 64px; }
+.section-head { display: flex; justify-content: space-between; align-items: end; margin-bottom: 22px; gap: 12px; }
+.section-head p { color: var(--muted); margin: 0; font-size: 14px; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.filter { border: 1px solid var(--line); background: white; border-radius: 999px; padding: 9px 13px; font-size: 13px; color: var(--muted); }
+.filter.active { border-color: var(--brand); color: var(--brand-dark); background: #fff5f1; }
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.restaurant { border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: white; transition: transform .2s, box-shadow .2s; }
+.restaurant:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(48,36,36,.1); }
+.restaurant-image { height: 150px; display: flex; align-items: end; justify-content: space-between; padding: 14px; color: white; font: 700 36px Georgia, serif; }
+.restaurant-image.coral { background: linear-gradient(135deg,#d85647,#f1a08a); }
+.restaurant-image.indigo { background: linear-gradient(135deg,#565a92,#a4a8d1); }
+.restaurant-image.gold { background: linear-gradient(135deg,#c99435,#f1d88e); }
+.restaurant-image.plum { background: linear-gradient(135deg,#63384f,#c584a2); }
+.pill { background: rgba(255,255,255,.86); color: var(--ink); border-radius: 999px; padding: 5px 8px; font: 700 10px Arial; }
+.restaurant-body { padding: 15px; }
+.restaurant-body h3 { margin: 0 0 6px; font-size: 17px; }
+.restaurant-body p { color: var(--muted); font-size: 13px; line-height: 1.4; min-height: 36px; margin: 0 0 12px; }
+.meta { display: flex; gap: 9px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+.rating { color: #27754d; font-weight: 700; }
+.chips { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.chip { background: var(--mint); color: #27754d; border-radius: 5px; padding: 4px 7px; font-size: 10px; }
+.empty { padding: 40px; border: 1px dashed var(--line); border-radius: 16px; color: var(--muted); text-align: center; grid-column: 1 / -1; }
+.footer { border-top: 1px solid var(--line); padding: 28px 0; color: var(--muted); font-size: 13px; }
+.modal-backdrop { position: fixed; inset: 0; z-index: 8; display: grid; place-items: center; padding: 16px; background: rgba(29,27,32,.48); }
+.modal { width: min(520px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 26px; border-radius: 22px; background: var(--paper); box-shadow: 0 24px 70px rgba(0,0,0,.25); }
+.modal form { display: grid; gap: 14px; }
+.modal label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+.modal input, .modal textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 11px; background: white; }
+.modal textarea { min-height: 74px; resize: vertical; }
+.muted { color: var(--muted); font-weight: 400; }
+.checkout-total { display: flex; justify-content: space-between; padding: 14px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.form-error { color: #a52c2c; padding: 10px 12px; border-radius: 8px; background: #fff0ef; margin: 0; }
+.success-box { padding: 20px; border-radius: 14px; background: var(--mint); }
+@media (max-width: 850px) { .hero { grid-template-columns: 1fr; padding-top: 42px; } .grid { grid-template-columns: repeat(2, 1fr); } .navlinks { display: none; } }
+@media (max-width: 520px) { .shell { padding: 0 16px; } .grid { grid-template-columns: 1fr; } .hero-card { min-height: 230px; } .searchbar { flex-direction: column; } .searchbar .button { width: 100%; } }
