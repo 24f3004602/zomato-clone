@@ -43,9 +43,14 @@ export default function RestaurantPage({ restaurant, items }: { restaurant: Rest
           notes: form.get("notes") || undefined,
         }),
       });
-      const payload = await response.json() as { data?: { id: string }; error?: string };
+      const payload = await response.json() as { data?: { id: string; payment?: { status: string } }; error?: string };
       if (!response.ok || !payload.data) {
         setCheckoutError(payload.error ?? "Unable to place order");
+        setCheckoutState("error");
+        return;
+      }
+      if (payload.data.payment?.status !== "INITIATED") {
+        setCheckoutError("The payment attempt could not be started.");
         setCheckoutState("error");
         return;
       }
@@ -74,7 +79,7 @@ export default function RestaurantPage({ restaurant, items }: { restaurant: Rest
         </section>
       </main>
       {itemCount > 0 && <aside style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", width: "min(560px, calc(100% - 32px))", background: "var(--ink)", color: "white", borderRadius: 18, padding: "15px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 12px 30px rgba(0,0,0,.2)" }}><div><strong>{itemCount} item{itemCount === 1 ? "" : "s"}</strong><div style={{ opacity: .7, fontSize: 12 }}>₹{formatMoney(subtotal)} + delivery and taxes</div></div><button className="button primary" onClick={() => setCheckoutOpen(true)} type="button">Review cart</button></aside>}
-      {checkoutOpen && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="checkout-title"><div className="section-head"><div><div className="eyebrow">Almost there</div><h2 id="checkout-title">Delivery details</h2></div><button className="filter" onClick={() => setCheckoutOpen(false)} type="button">Close</button></div>{checkoutState === "success" ? <div className="success-box"><h3>Order confirmed</h3><p>Your order has been sent to {restaurant.name}. The next step is payment-provider integration.</p><button className="button primary" onClick={() => setCheckoutOpen(false)} type="button">Done</button></div> : <form onSubmit={submitOrder}><label>Name<input name="name" required minLength={2} maxLength={80} /></label><label>Phone<input name="phone" required pattern="\+?[0-9 ()-]{7,20}" /></label><label>Delivery address<textarea name="address" required minLength={8} maxLength={240} /></label><label>Notes <span className="muted">(optional)</span><textarea name="notes" maxLength={500} /></label><div className="checkout-total"><span>Total estimate</span><strong>₹{formatMoney(subtotal + (subtotal >= 49900 ? 0 : restaurant.deliveryFee) + Math.round(subtotal * 5 / 100))}</strong></div>{checkoutError && <p className="form-error" role="alert">{checkoutError}</p>}<button className="button primary" disabled={checkoutState === "submitting"} type="submit">{checkoutState === "submitting" ? "Placing order..." : "Place order"}</button></form>}</section></div>}
+      {checkoutOpen && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="checkout-title"><div className="section-head"><div><div className="eyebrow">Almost there</div><h2 id="checkout-title">Delivery details</h2></div><button className="filter" onClick={() => setCheckoutOpen(false)} type="button">Close</button></div>{checkoutState === "success" ? <div className="success-box"><h3>Order created</h3><p>Your mock payment attempt is pending. A verified payment callback is required before fulfillment.</p><button className="button primary" onClick={() => setCheckoutOpen(false)} type="button">Done</button></div> : <form onSubmit={submitOrder}><label>Name<input name="name" required minLength={2} maxLength={80} /></label><label>Phone<input name="phone" required pattern="\+?[0-9 ()-]{7,20}" /></label><label>Delivery address<textarea name="address" required minLength={8} maxLength={240} /></label><label>Notes <span className="muted">(optional)</span><textarea name="notes" maxLength={500} /></label><div className="checkout-total"><span>Total estimate</span><strong>₹{formatMoney(subtotal + (subtotal >= 49900 ? 0 : restaurant.deliveryFee) + Math.round(subtotal * 5 / 100))}</strong></div>{checkoutError && <p className="form-error" role="alert">{checkoutError}</p>}<button className="button primary" disabled={checkoutState === "submitting"} type="submit">{checkoutState === "submitting" ? "Placing order..." : "Place order"}</button></form>}</section></div>}
     </>
   );
 }

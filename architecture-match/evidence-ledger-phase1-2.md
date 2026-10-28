@@ -43,6 +43,29 @@ The existing [evidence-ledger.md](./evidence-ledger.md) was not modified. This f
 | Z-007 | Search leads mention MQTT, Kafka, SSL pinning, modularization and microservices, but the retrieved leads are secondary or unsourced and are not used as architecture facts. | UNKNOWN | H | Search results included non-primary articles; excluded from comparison because they do not meet the evidence rule. |
 | Z-008 | The Zomato engineering blog could not be retrieved within the web-fetch timeout during this run. | UNKNOWN | H | `https://www.zomato.com/blog/`; no claim is inferred from the failure. |
 
+## Phase 3-5 continuation: supplied APK, browser capture and HAR
+
+| ID | Finding | Tag | Confidence | Evidence |
+|---|---|---|---|---|
+| A-001 | The supplied base APK identifies as `com.application.zomato`, version `19.9.8`, with min SDK 32, target SDK 37, 65,422 classes and 7,021 resources. | OBSERVED | H | REA `inspect_android_package`; Evidence `ev_25dcf59e085209da46b24bbb0a30800901211440599e39ff99dc5a14761de97c`; artifact SHA-256 `ce9da95fbd5f5830fc8d60ea749348793bfab3c221e62d11df02adc67dd9a40b` |
+| A-002 | Static class evidence includes Hilt/Dagger, Retrofit 2, OkHttp/Cronet, Gson/Kotlin serialization/Wire converter classes, Firebase Analytics/Messaging and Coil/Glide image-loading classes. | OBSERVED | H | REA Android class searches and focused inspections; retained Evidence IDs in the exported bundle |
+| A-003 | The APK contains separate normal, login and third-party Retrofit client factory patterns and per-tag/lazy client initialization. | OBSERVED | H | REA inspection of `com.zomato.commons.network.retrofit.RetrofitHelper` and Retrofit factory methods |
+| A-004 | Manifest declarations include location, notifications, foreground service/data sync, camera, biometrics, contacts, audio/media/storage and attribution-related permissions. | OBSERVED | H | REA `inspect_android_package` manifest projection; static declarations do not prove runtime use or user grants |
+| A-005 | A method named `reInitNonPinningCronetClients` is present in static code. This records a named code path only; no runtime execution or pinning bypass was performed. | OBSERVED | H | REA `inspect_android_method` focused method inspection |
+| A-006 | No top-level `WebSocket` class matched the bounded Android class-name search. This does not establish that the app has no real-time transport. | UNKNOWN | H | REA bounded `search_android_classes`; obfuscation, alternate libraries, dynamic loading and native code remain possible |
+| W-001 | Passive web evidence found `/z-homepage/_astro/` assets and `HomeLayout` bundle naming on the home page; same-origin restaurant-page inspection previously retained `/webroutes/getPage` URL candidates. | OBSERVED | H | REA `inspect_web_page` evidence from the supplied CDP session |
+| H-001 | The supplied sanitized HAR decoded successfully: 348,909 bytes, 85 of 85 records retained, with no live URL fetching. | OBSERVED | H | REA `inspect_web_network_capture` summary; Evidence `ev_49a5546a2e4a4dbeb01acaaadfb47d405486871d591d8f48544e055c6b36ad47`; parent `ev_86eab920e74c7dc161f45719ac40c7517b31b3651e04a0419e8236add5d53886` |
+| H-002 | The HAR is mostly homepage static assets and CDN media. Value-free record inspection found first-party `GET https://www.zomato.com/` (200), `GET /restaurant-onboard-diy/check-auth` (200), and `POST https://jumbo.zomato.com/event?user_id=-1` (200); no restaurant search/menu API flow was captured. | OBSERVED | H | REA capture preview and API-surface projection; query values and known credentials were excluded |
+| H-003 | The HAR shows CDN media requests including HTTP 206 partial-content responses, consistent with range-served media in this capture. | OBSERVED | H | REA capture preview/API-surface projection; this is a transport observation, not an inference about backend storage |
+| H-004 | The HAR does not establish Zomato's API domain boundaries, auth scheme, pagination, error envelope, idempotency headers, WebSocket use or server architecture because the relevant flows are absent from this capture. | UNKNOWN | H | REA capture coverage is complete for the 85 supplied records, but the recorded browsing scope is incomplete for those questions |
+
+### REA coverage and limitations carried forward
+
+- Android evidence is base-APK-only and static: split APKs, AAB-only modules, dynamic feature modules, native behavior and runtime configuration are not fully assessed.
+- Static declarations and class names do not establish execution, server behavior, or production topology; obfuscation and bundled SDKs complicate attribution.
+- Browser evidence is passive, same-origin and bounded; no login, payment, real order, navigation by the agent, or protection bypass occurred.
+- HAR evidence is a retained historical capture. REA excluded known credentials/cookies and declared sensitive values; URLs were not fetched. Complete decoding does not establish live runtime attribution or deployment authenticity.rred from the failure. |
+
 ## Phase 4: passive browser evidence
 
 | ID | Finding | Tag | Confidence | Evidence |
@@ -58,15 +81,57 @@ The existing [evidence-ledger.md](./evidence-ledger.md) was not modified. This f
 
 | ID | Finding | Tag | Confidence | Evidence |
 |---|---|---|---|---|
-| BLOCK-001 | Android analysis is blocked: the supplied path is an APKPure `.xapk`, not the requested `base.apk` pulled from the user's own device, and REA doctor reports no configured caller-supplied JADX MCP JAR. | UNKNOWN | H | User-supplied path; `npx -y rea-agents@6.8.0 doctor --client vscode --json` reports `jadx` missing. No APK was analyzed. |
-| BLOCK-002 | HAR analysis is blocked: the supplied path is a 1.4 MB extensionless file and the connected REA tool catalog does not advertise `inspect_web_network_capture`; REA doctor was run and no substitute decoder was used. | UNKNOWN | H | User-supplied path verification; REA tool search/catalog; doctor output. |
+| BLOCK-001 | Superseded: the initially supplied APK was rejected as an APKPure `.xapk`; the later own-device base APK was accepted and analyzed after JADX configuration. | UNKNOWN | H | Earlier artifact verification; superseded by AND-005 onward. |
+| BLOCK-002 | Superseded: the initially supplied extensionless file was not accepted as a HAR; the later sanitized HAR was decoded successfully by REA. | UNKNOWN | H | Earlier artifact verification; superseded by H-001 onward. |
 
 ## REA coverage and limitations
 
-The exported [REA evidence bundle](./rea-evidence-bundle.json) contains four retained browser records from the passive page/target observations. It contains no Android or HAR records. Therefore:
+This section records the earlier blocked attempt and is superseded by the continuation sections below. The current exported [REA evidence bundle](./rea-evidence-bundle.json) includes Android and HAR records. Therefore:
 
-- Android internals, runtime-family hints, classes, methods and references are **not assessed** (base APK and JADX unavailable).
+- Android internals are assessed only within the static base-APK/JADX boundary; runtime-family hints and execution remain partial.
 - Web rendering is only partially assessed from passive script/resource names; attach-window network shapes and WebSockets were empty and do not prove absence.
-- HAR protocol/domain/auth/error/pagination evidence is **not assessed** (tool unavailable and file not accepted).
+- HAR protocol/domain/auth/error/pagination evidence is assessed only for the 85 supplied records; absent flows remain unknown.
 - Public and source-tree evidence cannot prove backend services, databases, queues, infrastructure, production scale or private API behavior.
 - Absence from the source tree or future obfuscated static analysis is not proof of absence.
+
+## Phase 3-5 update: supplied artifacts and coverage
+
+| ID | Finding | Tag | Confidence | Evidence |
+|---|---|---|---|---|
+| AND-001 | The supplied base APK is a 120,521,421-byte APK with SHA-256 `ce9da95fbd5f5830fc8d60ea749348793bfab3c221e62d11df02adc67dd9a40b`. APK signature structure declares v2 and v3 blocks with a source stamp and consistent declared content digest; REA explicitly did not verify authenticity or signatures. | OBSERVED | H | REA `inspect_apk_signature`, Evidence `ev_ad2d4237d1b87e1a64bfd5a616cecb70be8095bf2c862290bebcb904cc18608` |
+| AND-002 | JADX package loading failed with Java heap exhaustion at an observed maximum heap of about 1.95 GiB, including after the permitted timeout/heap recovery retry. | UNKNOWN | H | REA `inspect_android_package`, target SHA-256 above; provider error reports `java.lang.OutOfMemoryError` during `load_apk` |
+| AND-003 | Android package metadata, classes, methods, SDK declarations, networking indicators, flags, analytics, maps, push and caching were not established because JADX could not load the APK. | UNKNOWN | H | REA `inspect_android_package` failure; no substitute decompiler used |
+| AND-004 | Resource decoding was not available because the Windows apktool launcher was not found. | UNKNOWN | H | REA `decode_android_resources` capability-unavailable result; no external decoder used |
+| HAR-001 | Superseded: the sanitized HAR was initially blocked by tool availability; it was later decoded as 85 retained records. | UNKNOWN | H | Earlier tool catalog state; superseded by H-001 through H-004 |
+| WEB-007 | The current CDP target is a single logged-out-looking Zomato home page at `https://www.zomato.com/`; target discovery exposed no restaurant target in the current session. | OBSERVED | H | REA `list_browser_targets`, Evidence `ev_dd56c4a26ccaaf2de6ae4b253d89ddcfb50e58a43d2c286d4f15b58715f32955` |
+| WEB-008 | Passive REA page inspection of the current home target retained same-origin page scripts/resources and JSON/WebSocket shape collection, but no claim about private API payloads is made from the bounded inspection. | OBSERVED | M | REA `inspect_web_page`, Evidence `ev_7ce0960d94cb62bf7d7abc9be9650ca9d98bf4314fc314cad20666d1c529affb`; output was retained in the exported bundle |
+
+The exported [REA evidence bundle](./rea-evidence-bundle.json) now contains 41 retained records, including Android package/class/method searches, APK signature evidence, browser observations and the HAR capture summary/projections. The supplied DevTools screenshot is supporting user evidence only; it is not a REA capture and does not establish server-side behavior.
+
+## Phase 3 gap-closure design records
+
+The following are proposed designs for TableTrail, not observations about Zomato:
+
+- Payment state machines, callback verification, reconciliation and tests: [payment-lifecycle.md](./payment-lifecycle.md).
+- Versioned REST schemas and error/idempotency conventions: [api-contracts.yaml](./api-contracts.yaml).
+- Logs, metrics, traces and privacy-conscious analytics: [observability-analytics.md](./observability-analytics.md).
+- Redis-backed limits and local/staging load objectives: [scale-test-plan.md](./scale-test-plan.md).
+- Synthetic dispatch, location/status events and notifications: [dispatch-location-notifications.md](./dispatch-location-notifications.md).
+- Modular-monolith target architecture: [clone-architecture-spec.md](./clone-architecture-spec.md).
+
+These recommendations do not upgrade any `UNKNOWN` Zomato backend claim to an observation.
+
+## Phase 3 Android continuation
+
+| ID | Finding | Tag | Confidence | Evidence |
+|---|---|---|---|---|
+| AND-005 | The APK package is `com.application.zomato`, version `19.9.8` / code `1710019980`, with min SDK 32 and target SDK 37. JADX loaded 65,422 classes and 7,021 resources. | OBSERVED | H | REA `inspect_android_package`, Evidence `ev_2991c7d8e3f293de3994d0fee66e46b7ecdba55ac660089393d6792271f2d709`; summary |
+| AND-006 | The manifest declares fine/coarse location, camera, notifications, foreground service/data-sync, wake lock, phone/contact/audio/media/storage, biometric/fingerprint, boot completion, exact alarm, ad/attribution and Google/Firebase-related permissions. Permission declaration does not prove runtime requests or use. | OBSERVED / INFERRED | H / M | REA `inspect_android_package`, same Evidence; alternative: some permissions may come from bundled SDKs or legacy features rather than active consumer flows |
+| AND-007 | Static class inventories contain Zomato's Retrofit helper, Retrofit 2, OkHttp, Cronet/OkHttp transport, Gson/Kotlin serialization/Wire converters, and a `NetworkCommunicator` integration. | OBSERVED | H | REA `search_android_classes` Evidence `ev_6d6f9da0ac914a4fd87234ac3a4be135791c3228365e5c3c810e8a0898c97a1d`; `inspect_android_class` Evidence `ev_7a7a3d3d9e0cc62c80b4670b87cd3175a57a5510154b504fe6dc72c351644beb` |
+| AND-008 | `RetrofitHelper` exposes separate normal, login and third-party client creation, per-tag client maps, lazy tag initialization and client reinitialization. | OBSERVED | H | REA `inspect_android_class` Evidence `ev_7a7a3d3d9e0cc62c80b4670b87cd3175a57a5510154b504fe6dc72c351644beb`; `inspect_android_method` Evidence `ev_6a7fd8a65a860270dfa3add40b0d9f2a4ad2bbe2b5dfece8ad6d54f70a8e3d6b` |
+| AND-009 | A method named `reInitNonPinningCronetClients` explicitly obtains a “non-pinning” client and rebuilds Retrofit clients from it. This proves a static code path/name, not when it runs or whether production traffic uses it. | OBSERVED | H | REA `inspect_android_method` Evidence `ev_833bded862046635c317b3035e32b4c4a8884418f074c53673116c81683a8e2c`; clean-room wording only |
+| AND-010 | Dagger/Hilt classes are present, indicating a DI framework is bundled; exact application component graph and ownership are not established by this class-name search. | OBSERVED / INFERRED | H / M | REA `search_android_classes` Evidence `ev_8520d500ec0907e74203231940509f75ae0534d190c92421d2645ca871358af6` |
+| AND-011 | Firebase Analytics and Firebase Messaging classes are present, supporting analytics and push-notification SDK integration at the shipped-code level. | OBSERVED | H | REA `search_android_classes` Evidence `ev_95b6ed54ac2a0d8b5c64eadfe3cc7292c85c6a6167470830245767103b3df00d`; Evidence `ev_a8741e024afb8ac05a93af23f1ffa7e2bfac51cc42457b2d8907836319ebad9d` |
+| AND-012 | Coil 3, Glide OkHttp integration and OkHttp image fetcher classes are present, supporting image loading/caching dependencies; cache policy and runtime use remain unknown. | OBSERVED / UNKNOWN | H / M | REA `search_android_classes` Evidence `ev_95b6ed54ac2a0d8b5c64eadfe3cc7292c85c6a6167470830245767103b3df00d`; Evidence `ev_fbf1392536bbfd5a26318ab1b2f387aab5ee3dd82c0deeb693703057e44345b6` |
+| AND-013 | No class-name match for `WebSocket` was found in the complete top-level class inventory. This does not prove no real-time channel exists because names may be obfuscated, implemented through another library, or dynamically loaded. | OBSERVED / UNKNOWN | H / H | REA `search_android_classes` Evidence `ev_09a4d61f7e8846708ffcb06c10e502d419c6dddc1afb08dbb2ff7864198e492e`; bounded negative search limitation |
+| AND-014 | The base APK manifest includes an exported Zomato data content provider and AndroidX Startup provider; the provider class exposes standard CRUD methods. Static declarations do not establish external accessibility behavior or data content. | OBSERVED / UNKNOWN | H / H | REA package summary Evidence `ev_2991c7d8e3f293de3994d0fee66e46b7ecdba55ac660089393d6792271f2d709`; class Evidence `ev_9f92e7e46052b87710bc346c50910d797fd555a48ccd188e0601248a23bc64a1` |

@@ -55,7 +55,10 @@ Introduce a transactional outbox if event loss or multiple consumers appears. Ad
 - **Real courier telemetry first:** adds privacy, battery, geo and operational risk; use a simulator and explicit location contract.
 - **Multi-region active-active deployment:** creates payment/order consistency and incident complexity without evidence of regional demand.
 
-## Unknowns to resolve in Phases 3-5
+## Evidence status and remaining unknowns
 
-The APK, browser session and HAR can replace some `UNKNOWN` labels with client-side evidence about Android modules/SDKs, web rendering and observed network shapes. They cannot establish Zomato's server databases, queue topology, service count, deployment, or private algorithms. Any copied behavior should remain a clean-room prose/contract observation, not copied code, assets or endpoints.
+The APK now supplies static Android module/SDK indicators, and the HAR is decoded and retained. The HAR is mostly homepage/CDN traffic and did not capture search, menu, checkout, tracking or a WebSocket flow, so it does not replace the corresponding unknowns. The browser, APK and HAR still cannot establish Zomato's server databases, queue topology, service count, deployment, or private algorithms. Any copied behavior should remain a clean-room prose/contract observation, not copied code, assets or endpoints.
 
+## Phase 3 execution outputs
+
+The implementation-ready designs are in [gap-closure-report.md](./gap-closure-report.md), [clone-architecture-spec.md](./clone-architecture-spec.md), [api-contracts.yaml](./api-contracts.yaml), [payment-lifecycle.md](./payment-lifecycle.md), [observability-analytics.md](./observability-analytics.md), [scale-test-plan.md](./scale-test-plan.md) and [dispatch-location-notifications.md](./dispatch-location-notifications.md). They are proposed TableTrail architecture, not evidence about Zomato.

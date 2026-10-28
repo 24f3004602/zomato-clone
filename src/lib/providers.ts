@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { MobileGatewaySmsProvider } from "./mobile-sms-provider";
 
 // ============================================
 // PAYMENT PROVIDER INTERFACE
@@ -263,6 +264,9 @@ export function getPaymentProvider(): PaymentProvider {
 
 export function getSmsProvider(): SmsProvider {
   const provider = process.env.SMS_PROVIDER;
+  if (provider === "mobile-gateway") {
+    return new MobileGatewaySmsProvider();
+  }
   if (provider === "fast2sms") {
     return new Fast2SmsProvider();
   }

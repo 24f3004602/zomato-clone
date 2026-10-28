@@ -1,4 +1,5 @@
 import type { CreateOrderInput, PricedOrder } from "./orders";
+import type { PaymentStatus } from "@prisma/client";
 import { prisma } from "./db";
 import { ORDER_CURRENCY } from "./money";
 
@@ -9,6 +10,12 @@ export type StoredOrder = {
   createdAt: string;
   userId?: string;
   restaurantId?: string;
+  payment?: {
+    id: string;
+    status: PaymentStatus;
+    amount: number;
+    currency: string;
+  };
 };
 
 type CreateInput = {
@@ -44,6 +51,12 @@ export class MemoryOrderRepository implements OrderRepository {
       createdAt: new Date().toISOString(),
       userId: input.userId,
       restaurantId: input.priced.restaurant.id,
+      payment: {
+        id: `pay_${crypto.randomUUID()}`,
+        status: "INITIATED" as const,
+        amount: input.priced.total,
+        currency: input.priced.currency,
+      },
     };
     memoryOrders.set(input.idempotencyKey, order);
     return order;
@@ -52,8 +65,11 @@ export class MemoryOrderRepository implements OrderRepository {
 
 export class PrismaOrderRepository implements OrderRepository {
   async findByIdempotencyKey(key: string) {
-    const record = await prisma.orderIdempotency.findUnique({ where: { key }, include: { order: true } });
-    return record ? toStoredOrder(record.order) : null;
+    const record = await prisma.orderIdempotency.findUnique({
+      where: { key },
+      include: { order: { include: { paymentAttempts: { orderBy: { attemptNo: "desc" }, take: 1 } } } },
+    });
+    return record ? toStoredOrder(record.order, record.order.paymentAttempts[0]) : null;
   }
 
   async listForUser(userId: string) {
@@ -125,10 +141,20 @@ export class PrismaOrderRepository implements OrderRepository {
             },
           },
         });
+        const payment = await transaction.paymentAttempt.create({
+          data: {
+            orderId: order.id,
+            attemptNo: 1,
+            provider: "mock",
+            amount: total,
+            currency: ORDER_CURRENCY,
+            idempotencyKey: `payment:${input.idempotencyKey}`,
+          },
+        });
         await transaction.orderIdempotency.create({ data: { key: input.idempotencyKey, orderId: order.id } });
-        return order;
+        return { order, payment };
       });
-      return toStoredOrder(order);
+      return toStoredOrder(order.order, order.payment);
     } catch (error) {
       if (isUniqueConstraintError(error)) {
         const existing = await this.findByIdempotencyKey(input.idempotencyKey);
@@ -139,7 +165,10 @@ export class PrismaOrderRepository implements OrderRepository {
   }
 }
 
-function toStoredOrder(order: { id: string; total: number; createdAt: Date; userId?: string | null; restaurantId?: string }) {
+function toStoredOrder(
+  order: { id: string; total: number; createdAt: Date; userId?: string | null; restaurantId?: string },
+  payment?: { id: string; status: PaymentStatus; amount: number; currency: string },
+) {
   return {
     id: order.id,
     status: "confirmed" as const,
@@ -147,6 +176,7 @@ function toStoredOrder(order: { id: string; total: number; createdAt: Date; user
     createdAt: order.createdAt.toISOString(),
     userId: order.userId ?? undefined,
     restaurantId: order.restaurantId,
+    payment,
   };
 }
 

@@ -17,11 +17,43 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum DeliveryStatus {
+  PENDING
+  ACCEPTED
+  PREPARING
+  READY
+  ASSIGNED
+  DELIVERING
+  DELIVERED
+}
+
 enum UserRole {
   CUSTOMER
   PARTNER
   ADMIN
   DELIVERY
+}
+
+enum PaymentStatus {
+  INITIATED
+  PAID
+  FAILED
+  REFUND_PENDING
+  REFUNDED
+  REFUND_FAILED
+}
+
+enum NotificationType {
+  ORDER_CREATED
+  ORDER_CONFIRMED
+  ORDER_CANCELLED
+  RESTAURANT_ACCEPTED
+  FOOD_PREPARING
+  FOOD_READY
+  COURIER_ASSIGNED
+  DELIVERY_STARTED
+  DELIVERY_COMPLETED
+  DELIVERY_DELAYED
 }
 
 model User {
@@ -38,6 +70,7 @@ model User {
   restaurants Restaurant[]
   deliveries Order[] @relation("DeliveryOrders")
   auditLogs  AuditLog[]
+  notifications Notification[]
 }
 
 model OtpChallenge {
@@ -114,6 +147,7 @@ model Order {
   restaurantId   String
   addressId      String?
   status         OrderStatus       @default(CONFIRMED)
+  deliveryStatus DeliveryStatus    @default(PENDING)
   subtotal       Int
   deliveryFee    Int
   serviceFee     Int
@@ -124,6 +158,7 @@ model Order {
   assignedAt     DateTime?
   pickedUpAt     DateTime?
   deliveredAt    DateTime?
+  estimatedDeliveryAt DateTime?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   user           User?             @relation("CustomerOrders", fields: [userId], references: [id], onDelete: SetNull)
@@ -132,10 +167,63 @@ model Order {
   address        Address?          @relation(fields: [addressId], references: [id], onDelete: SetNull)
   items          OrderItem[]
   idempotencyKey OrderIdempotency?
+  paymentAttempts PaymentAttempt[]
+  deliveryEvents DeliveryEvent[]
+  outboxEvents   OutboxEvent[]
+  notifications  Notification[]
 
-  @@index([restaurantId, status])
+  @@index([restaurantId, status, deliveryStatus])
   @@index([createdAt])
   @@index([deliveryPartnerId, status])
+  @@index([deliveryStatus, updatedAt])
+}
+
+model PaymentAttempt {
+  id                 String        @id @default(cuid())
+  orderId            String
+  attemptNo          Int
+  provider           String
+  providerReference  String?
+  amount             Int
+  currency           String        @default("INR")
+  status             PaymentStatus @default(INITIATED)
+  idempotencyKey     String        @unique
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  order              Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  events             PaymentEvent[]
+  refunds            Refund[]
+
+  @@unique([orderId, attemptNo])
+  @@index([status, updatedAt])
+}
+
+model PaymentEvent {
+  id                String         @id @default(cuid())
+  providerEventId   String         @unique
+  paymentAttemptId  String
+  eventType         String
+  payloadHash       String
+  receivedAt        DateTime       @default(now())
+  appliedAt         DateTime?
+  paymentAttempt    PaymentAttempt @relation(fields: [paymentAttemptId], references: [id], onDelete: Cascade)
+
+  @@index([paymentAttemptId, receivedAt])
+}
+
+model Refund {
+  id                String         @id @default(cuid())
+  paymentAttemptId  String
+  amount            Int
+  reason            String
+  status            PaymentStatus  @default(REFUND_PENDING)
+  providerReference String?
+  idempotencyKey    String         @unique
+  createdAt         DateTime       @default(now())
+  settledAt         DateTime?
+  paymentAttempt    PaymentAttempt @relation(fields: [paymentAttemptId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
 }
 
 model OrderItem {
@@ -171,4 +259,55 @@ model AuditLog {
 
   @@index([actorId, createdAt])
   @@index([entityType, entityId, createdAt])
+}
+
+model DeliveryEvent {
+  id               String           @id @default(cuid())
+  orderId          String
+  status           DeliveryStatus
+  assignedCourierId String?
+  reason           String?
+  createdAt        DateTime         @default(now())
+  order            Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@index([status, createdAt])
+}
+
+model OutboxEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  eventType String   // ORDER_STATUS_CHANGED, DELIVERY_ASSIGNED, etc.
+  payload   Json
+  processed Boolean  @default(false)
+  createdAt DateTime @default(now())
+  processedAt DateTime?
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, processed])
+  @@index([processed, createdAt])
+}
+
+model Notification {
+  id                String           @id @default(cuid())
+  userId            String
+  orderId           String
+  type              NotificationType
+  title             String
+  message           String
+  data              Json?
+  read              Boolean          @default(false)
+  readAt            DateTime?
+  channels          String[] @default([])  // "inbox", "email", "sms", "push"
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  failureCount      Int              @default(0)
+  lastError         String?
+  createdAt         DateTime         @default(now())
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order             Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt])
+  @@index([orderId, createdAt])
+  @@index([sentAt, deliveredAt])
 }
